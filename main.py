@@ -2,6 +2,7 @@ import streamlit as st
 import os
 from dotenv import load_dotenv
 from PIL import Image
+from st_aggrid import AgGrid
 
 # Import modules
 from models.dashboard import display_dashboard

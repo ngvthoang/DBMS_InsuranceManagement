@@ -1,6 +1,9 @@
 import streamlit as st
 import pandas as pd
 from database.db_connector import create_connection, execute_query
+from mysql.connector import Error
+from st_aggrid import AgGrid
+from st_aggrid.grid_options_builder import GridOptionsBuilder
 
 def display_customer_management():
     """Display the customer management section"""
@@ -27,7 +30,23 @@ def display_customers():
         customers = execute_query(connection, "SELECT * FROM Customers")
         if customers:
             df_customers = pd.DataFrame(customers)
-            st.dataframe(df_customers, use_container_width=True)
+            
+            # Configure AgGrid
+            gb = GridOptionsBuilder.from_dataframe(df_customers)
+            gb.configure_pagination(paginationAutoPageSize=True)
+            gb.configure_side_bar()
+            gb.configure_default_column(editable=True, filter=True)
+            grid_options = gb.build()
+
+            # Display the interactive table
+            AgGrid(
+                df_customers,
+                gridOptions=grid_options,
+                enable_enterprise_modules=True,
+                theme="blue",
+                height=400,
+                fit_columns_on_grid_load=True,
+            )
         else:
             st.info("No customers found in the database.")
         connection.close()
@@ -35,7 +54,21 @@ def display_customers():
 def add_customer_form():
     """Display the form to add a new customer"""
     with st.form("add_customer_form"):
-        customer_id = st.text_input("Customer ID (e.g., C006)")
+        # Auto-generate next ID
+        connection = create_connection()
+        if connection:
+            next_id = "C001"  # Default starting ID if no records exist
+            try:
+                last_customer = execute_query(connection, "SELECT CustomerID FROM Customers ORDER BY CustomerID DESC LIMIT 1")
+                if last_customer:
+                    last_id = last_customer[0]['CustomerID']
+                    next_id = f"C{int(last_id[1:]) + 1:03d}"
+            except Error as e:
+                st.error(f"Error fetching last customer ID: {e}")
+            finally:
+                connection.close()
+                
+        customer_id = st.text_input("Customer ID (e.g., C006)", value=next_id)
         customer_name = st.text_input("Customer Name")
         address = st.text_area("Address")
         phone = st.text_input("Phone Number")

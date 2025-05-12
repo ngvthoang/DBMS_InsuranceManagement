@@ -1,6 +1,9 @@
 import streamlit as st
 import pandas as pd
 from database.db_connector import create_connection, execute_query
+from mysql.connector import Error
+from st_aggrid import AgGrid
+from st_aggrid.grid_options_builder import GridOptionsBuilder
 
 def display_insurance_types():
     """Display the insurance types management section"""
@@ -23,7 +26,23 @@ def display_all_types():
         insurance_types = execute_query(connection, "SELECT * FROM InsuranceTypes")
         if insurance_types:
             df_types = pd.DataFrame(insurance_types)
-            st.dataframe(df_types, use_container_width=True)
+            
+            # Configure AgGrid
+            gb = GridOptionsBuilder.from_dataframe(df_types)
+            gb.configure_pagination(paginationAutoPageSize=True)
+            gb.configure_side_bar()
+            gb.configure_default_column(editable=True, filter=True)
+            grid_options = gb.build()
+
+            # Display the interactive table
+            AgGrid(
+                df_types,
+                gridOptions=grid_options,
+                enable_enterprise_modules=True,
+                theme="blue",
+                height=400,
+                fit_columns_on_grid_load=True,
+            )
         else:
             st.info("No insurance types found in the database.")
         connection.close()
@@ -31,7 +50,21 @@ def display_all_types():
 def add_type_form():
     """Display the form to add a new insurance type"""
     with st.form("add_insurance_type_form"):
-        type_id = st.text_input("Insurance Type ID (e.g., T006)")
+        # Auto-generate next ID
+        connection = create_connection()
+        if connection:
+            next_id = "T001"  # Default starting ID if no records exist
+            try:
+                last_type = execute_query(connection, "SELECT InsuranceTypeID FROM InsuranceTypes ORDER BY InsuranceTypeID DESC LIMIT 1")
+                if last_type:
+                    last_id = last_type[0]['InsuranceTypeID']
+                    next_id = f"T{int(last_id[1:]) + 1:03d}"
+            except Error as e:
+                st.error(f"Error fetching last insurance type ID: {e}")
+            finally:
+                connection.close()
+                
+        type_id = st.text_input("Insurance Type ID (e.g., T006)", value=next_id)
         type_name = st.text_input("Insurance Name")
         description = st.text_area("Description")
         

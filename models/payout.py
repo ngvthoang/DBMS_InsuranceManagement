@@ -3,6 +3,9 @@ import pandas as pd
 import datetime
 from database.db_connector import create_connection, execute_query
 from models.assessment import get_approved_claims
+from mysql.connector import Error
+from st_aggrid import AgGrid
+from st_aggrid.grid_options_builder import GridOptionsBuilder
 
 def display_payouts_management():
     """Display the payouts management section"""
@@ -24,7 +27,7 @@ def display_payouts():
     if connection:
         payouts = execute_query(connection, """
             SELECT p.PayoutID, p.ContractID, cust.CustomerName, 
-                   p.PayoutDate, p.Amount
+                   p.PayoutDate, p.Amount, p.Status
             FROM Payouts p
             JOIN InsuranceContracts c ON p.ContractID = c.ContractID
             JOIN Customers cust ON c.CustomerID = cust.CustomerID
@@ -32,7 +35,23 @@ def display_payouts():
         """)
         if payouts:
             df_payouts = pd.DataFrame(payouts)
-            st.dataframe(df_payouts, use_container_width=True)
+            
+            # Configure AgGrid
+            gb = GridOptionsBuilder.from_dataframe(df_payouts)
+            gb.configure_pagination(paginationAutoPageSize=True)
+            gb.configure_side_bar()
+            gb.configure_default_column(editable=True, filter=True)
+            grid_options = gb.build()
+
+            # Display the interactive table
+            AgGrid(
+                df_payouts,
+                gridOptions=grid_options,
+                enable_enterprise_modules=True,
+                theme="blue",
+                height=400,
+                fit_columns_on_grid_load=True,
+            )
         else:
             st.info("No payouts found in the database.")
         connection.close()
@@ -43,7 +62,21 @@ def process_payout_form():
     
     if approved_claims:
         with st.form("process_payout_form"):
-            payout_id = st.text_input("Payout ID (e.g., P006)")
+            # Auto-generate next ID
+            connection = create_connection()
+            if connection:
+                next_id = "P001"  # Default starting ID if no records exist
+                try:
+                    last_payout = execute_query(connection, "SELECT PayoutID FROM Payouts ORDER BY PayoutID DESC LIMIT 1")
+                    if last_payout:
+                        last_id = last_payout[0]['PayoutID']
+                        next_id = f"P{int(last_id[1:]) + 1:03d}"
+                except Error as e:
+                    st.error(f"Error fetching last payout ID: {e}")
+                finally:
+                    connection.close()
+                    
+            payout_id = st.text_input("Payout ID (e.g., P006)", value=next_id)
             
             contract_options = {f"{claim['ContractID']}: {claim['CustomerName']}" for claim in approved_claims}
             selected_contract = st.selectbox("Select Approved Claim", options=contract_options)

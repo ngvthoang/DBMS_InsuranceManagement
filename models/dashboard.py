@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 from database.db_connector import create_connection, execute_query
+from st_aggrid import AgGrid
+from st_aggrid.grid_options_builder import GridOptionsBuilder
 
 def display_dashboard():
     """Display the dashboard with key metrics and charts"""
@@ -55,7 +57,23 @@ def display_recent_contracts(connection):
     if recent_contracts:
         df_contracts = pd.DataFrame(recent_contracts)
         df_contracts['Period'] = df_contracts['SignDate'].astype(str)
-        st.dataframe(df_contracts[['ContractID', 'CustomerName', 'InsuranceName', 'Period']], use_container_width=True)
+        
+        # Configure AgGrid
+        gb = GridOptionsBuilder.from_dataframe(df_contracts[['ContractID', 'CustomerName', 'InsuranceName', 'Period']])
+        gb.configure_pagination(paginationAutoPageSize=True)  # Enable pagination
+        gb.configure_side_bar()  # Enable a sidebar for filtering
+        gb.configure_default_column(editable=True, filter=True)  # Enable filtering and editing
+        grid_options = gb.build()
+
+        # Display the interactive table
+        AgGrid(
+            df_contracts[['ContractID', 'CustomerName', 'InsuranceName', 'Period']],
+            gridOptions=grid_options,
+            enable_enterprise_modules=True,
+            theme="blue",
+            height=400,
+            fit_columns_on_grid_load=True,
+        )
     else:
         st.info("No recent contracts found.")
 
