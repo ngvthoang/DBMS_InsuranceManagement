@@ -216,16 +216,16 @@ elif nav_option == "Customer Management":
                 gb = GridOptionsBuilder.from_dataframe(df_customers)
                 gb.configure_pagination(paginationAutoPageSize=True)
                 gb.configure_side_bar()
-                gb.configure_default_column(editable=True, filter=True)
-                grid_options = gb.build()
-
+                gb.configure_default_column(editable=False, filter=True)
+                # grid_options = gb.build()
+                
                 # Display the interactive table
                 AgGrid(
                     df_customers,
-                    gridOptions=grid_options,
+                    # gridOptions=grid_options,
                     enable_enterprise_modules=True,
                     theme="blue",
-                    height=400,
+                    height=300,
                     fit_columns_on_grid_load=True,
                 )
             else:
