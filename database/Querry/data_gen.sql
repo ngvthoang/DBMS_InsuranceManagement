@@ -4,6 +4,8 @@ DROP TABLE IF EXISTS Assessments;
 DROP TABLE IF EXISTS InsuranceContracts;
 DROP TABLE IF EXISTS InsuranceTypes;
 DROP TABLE IF EXISTS Customers;
+DROP TABLE IF EXISTS Users;
+DROP TABLE IF EXISTS Roles;
 
 -- Create Tables
 CREATE TABLE Customers (
@@ -50,8 +52,32 @@ CREATE TABLE Payouts (
     FOREIGN KEY (ContractID) REFERENCES InsuranceContracts(ContractID)
 );
 
--- -- Insert Sample Data
+CREATE TABLE Roles (
+    RoleID INT PRIMARY KEY AUTO_INCREMENT,
+    RoleName VARCHAR(50) UNIQUE NOT NULL
+);
 
+CREATE TABLE Users (
+    UserID INT PRIMARY KEY AUTO_INCREMENT,
+    Username VARCHAR(50) UNIQUE NOT NULL,
+    PasswordHash VARCHAR(255) NOT NULL,
+    RoleID INT,
+    FOREIGN KEY (RoleID) REFERENCES Roles(RoleID)
+);
+
+-- Insert Roles
+INSERT INTO Roles (RoleName) VALUES ('Admin'), ('Insurance Agent'), ('Claim Assessor');
+
+-- Insert Users
+INSERT INTO Users (Username, PasswordHash, RoleID) VALUES
+('admin', SHA2('admin123', 256), 1),
+('agent_user', SHA2('agent123', 256), 2),
+('assessor_user', SHA2('assessor123', 256), 3);
+
+-- Encrypt sensitive data in Assessments and Payouts
+UPDATE Assessments SET EncryptedClaimAmount = AES_ENCRYPT(ClaimAmount, 'encryption_key');
+UPDATE Payouts SET EncryptedAmount = AES_ENCRYPT(Amount, 'encryption_key');
+-- -- Insert Sample Data
 
 -- INSERT INTO Customers (CustomerID, CustomerName, Address, PhoneNumber) VALUES
 -- ('C001', 'John Smith', '123 Main St, New York, NY', '555-1234'),

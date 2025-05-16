@@ -11,6 +11,11 @@ from models.dashboard import (
     get_contracts_by_status
 )
 
+# Check the curent user role if they are allowed to access this page
+if "logged_in" not in st.session_state or not st.session_state["logged_in"]:
+    st.error("Access denied. Please log in to view this page.")
+    st.stop()
+
 st.set_page_config(page_title="Dashboard", page_icon="📊", layout="wide")
 
 # Dashboard page

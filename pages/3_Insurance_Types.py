@@ -11,6 +11,14 @@ from models.insurance_type import (
     delete_insurance_type
 )
 
+# Check the curent user role if they are allowed to access this page
+if "logged_in" not in st.session_state or not st.session_state["logged_in"]:
+    st.error("Access denied. Please log in to view this page.")
+    st.stop()
+if "role" not in st.session_state or st.session_state["role"] not in ["Admin", "Insurance Agent"]:
+    st.error("Access denied. You do not have permission to view this page.")
+    st.stop()
+
 st.set_page_config(page_title="Insurance Types", page_icon="📋", layout="wide")
 
 # Insurance Types page

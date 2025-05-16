@@ -14,6 +14,14 @@ from models.assessment import (
     update_assessment_result
 )
 
+# Check the curent user role if they are allowed to access this page
+if "logged_in" not in st.session_state or not st.session_state["logged_in"]:
+    st.error("Access denied. Please log in to view this page.")
+    st.stop()
+if "role" not in st.session_state or st.session_state["role"] not in ["Admin", "Claim Accessor"]:
+    st.error("Access denied. You do not have permission to view this page.")
+    st.stop()
+
 st.set_page_config(page_title="Claims & Assessments", page_icon="🔍", layout="wide")
 
 # Claims & Assessments page
