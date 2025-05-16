@@ -34,11 +34,15 @@ def display_contracts():
     """Display a table of all contracts"""
     connection = create_connection()
     if connection:
+        # Optimized query for large-scale contract data
         contracts = execute_query(connection, """
             SELECT c.ContractID, cust.CustomerName, t.InsuranceName, c.SignDate, c.ExpirationDate, c.Status
             FROM InsuranceContracts c
             JOIN Customers cust ON c.CustomerID = cust.CustomerID
             JOIN InsuranceTypes t ON c.InsuranceTypeID = t.InsuranceTypeID
+            WHERE c.Status = 'Active' -- Filter for active contracts only
+            ORDER BY c.SignDate DESC -- Sort by most recent contracts
+            LIMIT 100 -- Limit results for performance
         """)
         if contracts:
             df_contracts = pd.DataFrame(contracts)

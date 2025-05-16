@@ -29,13 +29,16 @@ def display_claims():
     """Display a table of all claims"""
     connection = create_connection()
     if connection:
+        # Optimized query for large-scale claims data
         claims = execute_query(connection, """
             SELECT a.AssessmentID, c.ContractID, cust.CustomerName, 
                    a.AssessmentDate, a.Result, a.ClaimAmount
             FROM Assessments a
             JOIN InsuranceContracts c ON a.ContractID = c.ContractID
             JOIN Customers cust ON c.CustomerID = cust.CustomerID
-            ORDER BY a.AssessmentDate DESC
+            WHERE a.Result = 'Approved' -- Filter for approved claims only
+            ORDER BY a.AssessmentDate DESC -- Sort by most recent assessments
+            LIMIT 100 -- Limit results for performance
         """)
         if claims:
             df_claims = pd.DataFrame(claims)

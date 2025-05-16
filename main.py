@@ -4,18 +4,6 @@ from dotenv import load_dotenv
 from PIL import Image
 from st_aggrid import AgGrid
 
-# Import modules
-from models.dashboard import display_dashboard
-from models.customer import display_customer_management
-from models.insurance_type import display_insurance_types
-from models.contract import display_contract_management
-from models.assessment import display_claims_management
-from models.payout import display_payouts_management
-from models.report import display_reports
-
-# Load environment variables
-load_dotenv() 
-
 # Set page config
 st.set_page_config(
     page_title="Insurance Management System",
@@ -23,6 +11,19 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# Load environment variables
+load_dotenv() 
+
+# Import modules
+from models.login import login
+from models.dashboard import display_dashboard
+from models.customer import display_customer_management
+from models.insurance_type import display_insurance_types
+from models.contract import display_contract_management
+from models.assessment import display_claims_management
+from models.payout import display_payouts_management
+from models.report import display_reports
 
 # Custom CSS
 st.markdown("""
@@ -85,18 +86,33 @@ nav_option = st.sidebar.radio(
 # Main header
 st.markdown('<div class="main-header">Insurance Management System</div>', unsafe_allow_html=True)
 
-# Handle navigation
+# Handle navigation with role-based restrictions
 if nav_option == "Dashboard":
     display_dashboard()
 elif nav_option == "Customer Management":
-    display_customer_management()
+    if st.session_state.get("role") == "Claim Assessor":
+        st.error("Access restricted: You cannot view Customer Management.")
+    else:
+        display_customer_management()
 elif nav_option == "Insurance Types":
-    display_insurance_types()
+    if st.session_state.get("role") == "Claim Assessor":
+        st.error("Access restricted: You cannot view Insurance Types.")
+    else:
+        display_insurance_types()
 elif nav_option == "Contract Management":
-    display_contract_management()
+    if st.session_state.get("role") == "Claim Assessor":
+        st.error("Access restricted: You cannot view Contract Management.")
+    else:
+        display_contract_management()
 elif nav_option == "Claims & Assessments":
-    display_claims_management()
+    if st.session_state.get("role") == "Insurance Agent":
+        st.error("Access restricted: You cannot view Claims and Assessments.")
+    else:
+        display_claims_management()
 elif nav_option == "Payouts Management":
-    display_payouts_management()
+    if st.session_state.get("role") == "Insurance Agent":
+        st.error("Access restricted: You cannot view Payouts Management.")
+    else:
+        display_payouts_management()
 elif nav_option == "Reports":
     display_reports()

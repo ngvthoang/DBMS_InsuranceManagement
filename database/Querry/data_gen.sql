@@ -1,6 +1,8 @@
 USE DATABASE prj_insurance;
 
 -- Drop tables in reverse order of creation (due to foreign key constraints)
+DROP TABLE IF EXISTS Users;
+DROP TABLE IF EXISTS Roles;
 DROP TABLE IF EXISTS Payouts;
 DROP TABLE IF EXISTS Assessments;
 DROP TABLE IF EXISTS InsuranceContracts;
@@ -14,7 +16,6 @@ CREATE TABLE Customers (
     Address VARCHAR(255),
     PhoneNumber VARCHAR(20)
 );
-
 
 CREATE TABLE InsuranceTypes (
     InsuranceTypeID VARCHAR(10) PRIMARY KEY,
@@ -40,6 +41,7 @@ CREATE TABLE Assessments (
     AssessmentDate DATE,
     ClaimAmount DECIMAL(12, 2),
     Result VARCHAR(255),
+    EncryptedClaimAmount VARBINARY(255),
     FOREIGN KEY (ContractID) REFERENCES InsuranceContracts(ContractID)
 );
 
@@ -49,7 +51,21 @@ CREATE TABLE Payouts (
     Amount DECIMAL(12, 2),
     PayoutDate DATE,
     Status VARCHAR(20) DEFAULT 'Pending',
+    EncryptedAmount VARBINARY(255),
     FOREIGN KEY (ContractID) REFERENCES InsuranceContracts(ContractID)
+);
+
+CREATE TABLE Roles (
+    RoleID INT PRIMARY KEY AUTO_INCREMENT,
+    RoleName VARCHAR(50) UNIQUE NOT NULL
+);
+
+CREATE TABLE Users (
+    UserID INT PRIMARY KEY AUTO_INCREMENT,
+    Username VARCHAR(50) UNIQUE NOT NULL,
+    PasswordHash VARCHAR(255) NOT NULL,
+    RoleID INT,
+    FOREIGN KEY (RoleID) REFERENCES Roles(RoleID)
 );
 
 -- Insert Sample Data
@@ -92,3 +108,16 @@ INSERT INTO Payouts (PayoutID, ContractID, Amount, PayoutDate, Status) VALUES
 ('P003', 'CT004', 150000.00, '2024-07-01', 'Approved'),
 ('P004', 'CT001', 800.00, '2025-01-10', 'Pending'),
 ('P005', 'CT002', 0.00, '2024-04-20', 'Rejected'); -- rejected claim
+
+-- Encrypt sensitive data in Assessments and Payouts
+UPDATE Assessments SET EncryptedClaimAmount = AES_ENCRYPT(ClaimAmount, 'encryption_key');
+UPDATE Payouts SET EncryptedAmount = AES_ENCRYPT(Amount, 'encryption_key');
+
+-- Insert Roles
+INSERT INTO Roles (RoleName) VALUES ('Admin'), ('Insurance Agent'), ('Claim Assessor');
+
+-- Insert Users
+INSERT INTO Users (Username, PasswordHash, RoleID) VALUES
+('admin', SHA2('admin123', 256), 1),
+('agent_user', SHA2('StrongPassword1!', 256), 2),
+('assessor_user', SHA2('StrongPassword2!', 256), 3);
