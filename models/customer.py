@@ -1,9 +1,7 @@
 import streamlit as st
 import pandas as pd
-from database.db_connector import create_connection, execute_query
 from mysql.connector import Error
-from st_aggrid import AgGrid
-from st_aggrid.grid_options_builder import GridOptionsBuilder
+from database.db_connector import get_cached_data, execute_write_query
 
 def display_customer_management():
     """Display the customer management section"""
@@ -25,48 +23,18 @@ def display_customer_management():
 
 def display_customers():
     """Display a table of all customers"""
-    connection = create_connection()
-    if connection:
-        customers = execute_query(connection, "SELECT * FROM Customers")
-        if customers:
-            df_customers = pd.DataFrame(customers)
-            
-            # Configure AgGrid
-            gb = GridOptionsBuilder.from_dataframe(df_customers)
-            gb.configure_pagination(paginationAutoPageSize=True)
-            gb.configure_side_bar()
-            gb.configure_default_column(editable=True, filter=True)
-            grid_options = gb.build()
-
-            # Display the interactive table
-            AgGrid(
-                df_customers,
-                gridOptions=grid_options,
-                enable_enterprise_modules=True,
-                theme="blue",
-                height=400,
-                fit_columns_on_grid_load=True,
-            )
-        else:
-            st.info("No customers found in the database.")
-        connection.close()
+    customers = get_all_customers()
+    if customers:
+        df_customers = pd.DataFrame(customers)
+        st.dataframe(df_customers, use_container_width=True)
+    else:
+        st.info("No customers found in the database.")
 
 def add_customer_form():
     """Display the form to add a new customer"""
     with st.form("add_customer_form"):
         # Auto-generate next ID
-        connection = create_connection()
-        if connection:
-            next_id = "C001"  # Default starting ID if no records exist
-            try:
-                last_customer = execute_query(connection, "SELECT CustomerID FROM Customers ORDER BY CustomerID DESC LIMIT 1")
-                if last_customer:
-                    last_id = last_customer[0]['CustomerID']
-                    next_id = f"C{int(last_id[1:]) + 1:03d}"
-            except Error as e:
-                st.error(f"Error fetching last customer ID: {e}")
-            finally:
-                connection.close()
+        next_id = generate_next_customer_id()
                 
         customer_id = st.text_input("Customer ID (e.g., C006)", value=next_id)
         customer_name = st.text_input("Customer Name")
@@ -76,43 +44,29 @@ def add_customer_form():
         submitted = st.form_submit_button("Add Customer")
         if submitted:
             if customer_id and customer_name and address and phone:
-                # Create a connection and insert the new customer
-                save_customer(customer_id, customer_name, address, phone)
+                # Insert the new customer
+                result = add_customer(customer_id, customer_name, address, phone)
+                if result:
+                    st.markdown('<div class="success-msg">Customer added successfully!</div>', unsafe_allow_html=True)
+                else:
+                    st.markdown('<div class="error-msg">Failed to add customer.</div>', unsafe_allow_html=True)
             else:
                 st.markdown('<div class="error-msg">Please fill in all the required fields.</div>', unsafe_allow_html=True)
 
-def save_customer(customer_id, customer_name, address, phone):
-    """Save a new customer to the database"""
-    connection = create_connection()
-    if connection:
-        insert_query = """
-        INSERT INTO Customers (CustomerID, CustomerName, Address, PhoneNumber) 
-        VALUES (%s, %s, %s, %s)
-        """
-        data = (customer_id, customer_name, address, phone)
-        result = execute_query(connection, insert_query, data)
-        if result is not None:
-            st.markdown('<div class="success-msg">Customer added successfully!</div>', unsafe_allow_html=True)
-        connection.close()
-
 def edit_customer_form():
     """Display the form to edit an existing customer"""
-    connection = create_connection()
-    if connection:
-        customers = execute_query(connection, "SELECT CustomerID, CustomerName FROM Customers")
-        if customers:
-            customer_options = {f"{cust['CustomerID']}: {cust['CustomerName']}" for cust in customers}
-            selected_customer = st.selectbox("Select Customer to Edit", options=customer_options)
+    customer_options = get_customers_dropdown()
+    if customer_options:
+        selected_customer = st.selectbox("Select Customer to Edit", options=list(customer_options.keys()))
+        
+        if selected_customer:
+            customer_id = customer_options[selected_customer]
+            customer_data = get_customer_by_id(customer_id)
             
-            if selected_customer:
-                customer_id = selected_customer.split(':')[0].strip()
-                customer_data = execute_query(connection, "SELECT * FROM Customers WHERE CustomerID = %s", (customer_id,))
-                
-                if customer_data:
-                    display_edit_form(customer_id, customer_data[0])
-        else:
-            st.info("No customers found in the database.")
-        connection.close()
+            if customer_data:
+                display_edit_form(customer_id, customer_data)
+    else:
+        st.info("No customers found in the database.")
 
 def display_edit_form(customer_id, customer):
     """Display the edit form with current customer data"""
@@ -124,30 +78,80 @@ def display_edit_form(customer_id, customer):
         submitted = st.form_submit_button("Update Customer")
         if submitted:
             if customer_name and address and phone:
-                update_customer(customer_id, customer_name, address, phone)
+                result = update_customer(customer_id, customer_name, address, phone)
+                if result:
+                    st.markdown('<div class="success-msg">Customer updated successfully!</div>', unsafe_allow_html=True)
+                else:
+                    st.markdown('<div class="error-msg">Failed to update customer.</div>', unsafe_allow_html=True)
             else:
                 st.markdown('<div class="error-msg">Please fill in all the required fields.</div>', unsafe_allow_html=True)
 
+def get_all_customers():
+    """Get all customers from database with caching"""
+    return get_cached_data("SELECT * FROM Customers")
+
+def get_customer_by_id(customer_id):
+    """Get a specific customer by ID"""
+    result = get_cached_data("SELECT * FROM Customers WHERE CustomerID = %s", (customer_id,))
+    if result and len(result) > 0:
+        return result[0]
+    return None
+
+def get_customers_dropdown():
+    """Get customers for dropdown selection"""
+    customers = get_cached_data("SELECT CustomerID, CustomerName FROM Customers")
+    if not customers:
+        return {}
+    return {f"{cust['CustomerID']}: {cust['CustomerName']}": cust['CustomerID'] for cust in customers}
+
+def generate_next_customer_id():
+    """Generate the next customer ID"""
+    last_customer = get_cached_data("SELECT CustomerID FROM Customers ORDER BY CustomerID DESC LIMIT 1")
+    next_id = "C001"  # Default starting ID if no records exist
+    
+    if last_customer and len(last_customer) > 0:
+        last_id = last_customer[0]['CustomerID']
+        # Extract the numeric part, increment it, and format it back
+        try:
+            id_num = int(last_id[1:])
+            next_id = f"C{(id_num + 1):03d}"
+        except (ValueError, IndexError):
+            pass  # Use default if parsing fails
+    
+    return next_id
+
+def add_customer(customer_id, customer_name, address, phone):
+    """Add a new customer to the database"""
+    query = """
+    INSERT INTO Customers (CustomerID, CustomerName, Address, PhoneNumber) 
+    VALUES (%s, %s, %s, %s)
+    """
+    data = (customer_id, customer_name, address, phone)
+    return execute_write_query(query, data)
+
 def update_customer(customer_id, customer_name, address, phone):
     """Update an existing customer in the database"""
-    connection = create_connection()
-    if connection:
-        update_query = """
-        UPDATE Customers 
-        SET CustomerName = %s, Address = %s, PhoneNumber = %s
-        WHERE CustomerID = %s
-        """
-        data = (customer_name, address, phone, customer_id)
-        result = execute_query(connection, update_query, data)
-        if result is not None:
-            st.markdown('<div class="success-msg">Customer updated successfully!</div>', unsafe_allow_html=True)
-        connection.close()
+    query = """
+    UPDATE Customers 
+    SET CustomerName = %s, Address = %s, PhoneNumber = %s
+    WHERE CustomerID = %s
+    """
+    data = (customer_name, address, phone, customer_id)
+    return execute_write_query(query, data)
+
+def delete_customer(customer_id):
+    """Delete a customer from the database"""
+    query = "DELETE FROM Customers WHERE CustomerID = %s"
+    result = execute_write_query(query, (customer_id,))
+    
+    # Clear cache specifically for customer data
+    if hasattr(get_all_customers, 'clear'):
+        get_all_customers.clear()
+    if hasattr(get_customers_dropdown, 'clear'):
+        get_customers_dropdown.clear()
+    
+    return result
 
 def get_customers():
-    """Get all customers from the database"""
-    connection = create_connection()
-    if connection:
-        customers = execute_query(connection, "SELECT CustomerID, CustomerName FROM Customers")
-        connection.close()
-        return customers
-    return []
+    """Get all customers from database - alias for get_all_customers"""
+    return get_all_customers()

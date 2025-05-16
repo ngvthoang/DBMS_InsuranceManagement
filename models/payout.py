@@ -1,112 +1,147 @@
 import streamlit as st
 import pandas as pd
 import datetime
-from database.db_connector import create_connection, execute_query
+from database.db_connector import create_connection, execute_query, get_cached_data, execute_write_query
 from models.assessment import get_approved_claims
 from mysql.connector import Error
-from st_aggrid import AgGrid
-from st_aggrid.grid_options_builder import GridOptionsBuilder
 
-def display_payouts_management():
-    """Display the payouts management section"""
-    st.markdown('<div class="sub-header">Payouts Management</div>', unsafe_allow_html=True)
+@st.cache_data(ttl=300)
+def get_all_payouts():
+    """Get all payouts with related information"""
+    query = """
+        SELECT p.PayoutID, p.ContractID, cust.CustomerID, cust.CustomerName, 
+               p.PayoutDate, p.Amount, p.Status, t.InsuranceName
+        FROM Payouts p
+        JOIN InsuranceContracts c ON p.ContractID = c.ContractID
+        JOIN Customers cust ON c.CustomerID = cust.CustomerID
+        JOIN InsuranceTypes t ON c.InsuranceTypeID = t.InsuranceTypeID
+        ORDER BY p.PayoutDate DESC
+    """
+    return get_cached_data(query)
+
+@st.cache_data(ttl=300)
+def get_payout_by_id(payout_id):
+    """Get a specific payout by ID"""
+    query = """
+        SELECT p.PayoutID, p.ContractID, c.CustomerID, cust.CustomerName,
+               p.PayoutDate, p.Amount, p.Status, t.InsuranceName,
+               t.InsuranceTypeID
+        FROM Payouts p
+        JOIN InsuranceContracts c ON p.ContractID = c.ContractID
+        JOIN Customers cust ON c.CustomerID = cust.CustomerID
+        JOIN InsuranceTypes t ON c.InsuranceTypeID = t.InsuranceTypeID
+        WHERE p.PayoutID = %s
+    """
+    result = get_cached_data(query, (payout_id,))
+    if result and len(result) > 0:
+        return result[0]
+    return None
+
+@st.cache_data(ttl=300)
+def get_payouts_dropdown():
+    """Get payouts for dropdown selection"""
+    query = """
+        SELECT p.PayoutID, cust.CustomerName, p.Amount
+        FROM Payouts p
+        JOIN InsuranceContracts c ON p.ContractID = c.ContractID
+        JOIN Customers cust ON c.CustomerID = cust.CustomerID
+    """
+    payouts = get_cached_data(query)
+    if not payouts:
+        return {}
+    return {f"{p['PayoutID']}: {p['CustomerName']} - ${float(p['Amount']):,.2f}": p['PayoutID'] for p in payouts}
+
+@st.cache_data(ttl=300)
+def get_pending_payouts():
+    """Get pending payouts"""
+    query = """
+        SELECT p.PayoutID, p.ContractID, cust.CustomerName, 
+               p.PayoutDate, p.Amount, p.Status
+        FROM Payouts p
+        JOIN InsuranceContracts c ON p.ContractID = c.ContractID
+        JOIN Customers cust ON c.CustomerID = cust.CustomerID
+        WHERE p.Status = 'Pending'
+        ORDER BY p.PayoutDate
+    """
+    return get_cached_data(query)
+
+@st.cache_data(ttl=300)
+def get_total_approved_payouts():
+    """Get total amount of approved payouts"""
+    query = """
+        SELECT SUM(Amount) AS total
+        FROM Payouts
+        WHERE Status = 'Approved' OR Status = 'Completed'
+    """
+    result = get_cached_data(query)
+    return result[0]['total'] if result and result[0]['total'] else 0
+
+@st.cache_data(ttl=300)
+def get_payout_counts_by_status():
+    """Get count of payouts by status"""
+    query = """
+        SELECT Status, COUNT(*) AS count
+        FROM Payouts
+        GROUP BY Status
+    """
+    return get_cached_data(query)
+
+def generate_next_payout_id():
+    """Generate the next payout ID"""
+    last_payout = get_cached_data("SELECT PayoutID FROM Payouts ORDER BY PayoutID DESC LIMIT 1")
+    next_id = "P001"  # Default starting ID if no records exist
     
-    tab1, tab2 = st.tabs(["View Payouts", "Process New Payout"])
+    if last_payout and len(last_payout) > 0:
+        last_id = last_payout[0]['PayoutID']
+        # Extract the numeric part, increment it, and format it back
+        try:
+            id_num = int(last_id[1:])
+            next_id = f"P{(id_num + 1):03d}"
+        except (ValueError, IndexError):
+            pass  # Use default if parsing fails
     
-    # View Payouts Tab
-    with tab1:
-        display_payouts()
+    return next_id
+
+def add_payout(payout_id, contract_id, amount, payout_date, status="Pending"):
+    """Add a new payout to the database"""
+    query = """
+    INSERT INTO Payouts (PayoutID, ContractID, Amount, PayoutDate, Status) 
+    VALUES (%s, %s, %s, %s, %s)
+    """
+    data = (payout_id, contract_id, amount, payout_date, status)
+    result = execute_write_query(query, data)
     
-    # Process New Payout Tab
-    with tab2:
-        process_payout_form()
-
-def display_payouts():
-    """Display a table of all payouts"""
-    connection = create_connection()
-    if connection:
-        payouts = execute_query(connection, """
-            SELECT p.PayoutID, p.ContractID, cust.CustomerName, 
-                   p.PayoutDate, p.Amount, p.Status
-            FROM Payouts p
-            JOIN InsuranceContracts c ON p.ContractID = c.ContractID
-            JOIN Customers cust ON c.CustomerID = cust.CustomerID
-            ORDER BY p.PayoutDate DESC
-        """)
-        if payouts:
-            df_payouts = pd.DataFrame(payouts)
-            
-            # Configure AgGrid
-            gb = GridOptionsBuilder.from_dataframe(df_payouts)
-            gb.configure_pagination(paginationAutoPageSize=True)
-            gb.configure_side_bar()
-            gb.configure_default_column(editable=True, filter=True)
-            grid_options = gb.build()
-
-            # Display the interactive table
-            AgGrid(
-                df_payouts,
-                gridOptions=grid_options,
-                enable_enterprise_modules=True,
-                theme="blue",
-                height=400,
-                fit_columns_on_grid_load=True,
-            )
-        else:
-            st.info("No payouts found in the database.")
-        connection.close()
-
-def process_payout_form():
-    """Display the form to process a new payout"""
-    approved_claims = get_approved_claims()
+    # Clear cache for payout-related functions
+    clear_payout_cache()
     
-    if approved_claims:
-        with st.form("process_payout_form"):
-            # Auto-generate next ID
-            connection = create_connection()
-            if connection:
-                next_id = "P001"  # Default starting ID if no records exist
-                try:
-                    last_payout = execute_query(connection, "SELECT PayoutID FROM Payouts ORDER BY PayoutID DESC LIMIT 1")
-                    if last_payout:
-                        last_id = last_payout[0]['PayoutID']
-                        next_id = f"P{int(last_id[1:]) + 1:03d}"
-                except Error as e:
-                    st.error(f"Error fetching last payout ID: {e}")
-                finally:
-                    connection.close()
-                    
-            payout_id = st.text_input("Payout ID (e.g., P006)", value=next_id)
-            
-            contract_options = {f"{claim['ContractID']}: {claim['CustomerName']}" for claim in approved_claims}
-            selected_contract = st.selectbox("Select Approved Claim", options=contract_options)
-            
-            payout_date = st.date_input("Payout Date", value=datetime.date.today())
-            
-            amount = st.number_input("Payout Amount ($)", min_value=0.0, value=0.0, step=100.0)
-            
-            submitted = st.form_submit_button("Process Payout")
-            if submitted:
-                if payout_id and selected_contract and amount > 0:
-                    contract_id = selected_contract.split(':')[0].strip()
-                    
-                    save_payout(payout_id, contract_id, amount, payout_date)
-                else:
-                    st.markdown('<div class="error-msg">Please fill in all the required fields.</div>', unsafe_allow_html=True)
-    else:
-        st.warning("No approved claims without payouts found in the database.")
+    return result
 
-def save_payout(payout_id, contract_id, amount, payout_date):
-    """Save a new payout to the database"""
-    connection = create_connection()
-    if connection:
-        insert_query = """
-        INSERT INTO Payouts 
-        (PayoutID, ContractID, Amount, PayoutDate) 
-        VALUES (%s, %s, %s, %s)
-        """
-        data = (payout_id, contract_id, amount, payout_date)
-        result = execute_query(connection, insert_query, data)
-        if result is not None:
-            st.markdown('<div class="success-msg">Payout processed successfully!</div>', unsafe_allow_html=True)
-        connection.close()
+def update_payout_status(payout_id, status):
+    """Update a payout's status in the database"""
+    query = """
+    UPDATE Payouts 
+    SET Status = %s
+    WHERE PayoutID = %s
+    """
+    data = (status, payout_id)
+    result = execute_write_query(query, data)
+    
+    # Clear cache for payout-related functions
+    clear_payout_cache()
+    
+    return result
+
+def clear_payout_cache():
+    """Clear all cached payout data"""
+    if hasattr(get_all_payouts, 'clear'):
+        get_all_payouts.clear()
+    if hasattr(get_payout_by_id, 'clear'):
+        get_payout_by_id.clear()
+    if hasattr(get_payouts_dropdown, 'clear'):
+        get_payouts_dropdown.clear()
+    if hasattr(get_pending_payouts, 'clear'):
+        get_pending_payouts.clear()
+    if hasattr(get_total_approved_payouts, 'clear'):
+        get_total_approved_payouts.clear()
+    if hasattr(get_payout_counts_by_status, 'clear'):
+        get_payout_counts_by_status.clear()
