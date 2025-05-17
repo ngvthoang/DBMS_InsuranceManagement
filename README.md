@@ -58,7 +58,7 @@ Install dependencies
 pip install -r requirements.txt
 ```
 ### Set environment example
-Create and set an environment example 
+Create a .env file and set an environment example 
 
 ```#DATABASE CONNECTION
 DB_HOST = "localhost"
