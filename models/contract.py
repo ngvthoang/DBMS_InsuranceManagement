@@ -6,145 +6,6 @@ from models.customer import get_customers
 from models.insurance_type import get_all_insurance_types
 from mysql.connector import Error
 
-def display_contract_management():
-    """Display the contract management section"""
-    st.markdown('<div class="sub-header">Contract Management</div>', unsafe_allow_html=True)
-    
-    tab1, tab2, tab3, tab4 = st.tabs(["View Contracts", "Create Contract", "Update Contract", "Contract Extension"])
-    
-    # View Contracts Tab
-    with tab1:
-        display_contracts()
-    
-    # Create Contract Tab
-    with tab2:
-        create_contract_form()
-        
-    # Update Contract Tab
-    with tab3:
-        update_contract_form()
-        
-    # Contract Extension Tab
-    with tab4:
-        extend_contracts()
-
-def display_contracts():
-    """Display a table of all contracts"""
-    contracts = get_all_contracts()
-    if contracts:
-        df_contracts = pd.DataFrame(contracts)
-        st.dataframe(df_contracts, use_container_width=True)
-    else:
-        st.info("No contracts found in the database.")
-
-def create_contract_form():
-    """Display the form to create a new contract"""
-    # Initialize session state for success message
-    if 'contract_created' not in st.session_state:
-        st.session_state.contract_created = False
-    
-    # Show success message if contract was just created
-    if st.session_state.contract_created:
-        st.success("Contract created successfully!")
-        st.session_state.contract_created = False
-    
-    customers = get_customers()
-    insurance_types = get_all_insurance_types()
-    
-    if customers and insurance_types:
-        with st.form("create_contract_form"):
-            # Auto-generate next ID
-            next_id = generate_next_contract_id()
-            
-            contract_id = st.text_input("Contract ID (e.g., CT007)", value=next_id)
-            
-            # Create proper dictionaries for dropdown selections
-            customer_options = {f"{cust['CustomerID']}: {cust['CustomerName']}": cust['CustomerID'] for cust in customers}
-            selected_customer = st.selectbox("Select Customer", options=list(customer_options.keys()))
-            
-            type_options = {f"{type_['InsuranceTypeID']}: {type_['InsuranceName']}": type_['InsuranceTypeID'] for type_ in insurance_types}
-            selected_type = st.selectbox("Select Insurance Type", options=list(type_options.keys()))
-            
-            sign_date = st.date_input("Sign Date", value=datetime.date.today())
-            
-            submitted = st.form_submit_button("Create Contract")
-            if submitted:
-                if contract_id and selected_customer and selected_type:
-                    customer_id = customer_options[selected_customer]
-                    type_id = type_options[selected_type]
-                    
-                    if add_contract(contract_id, customer_id, type_id, sign_date):
-                        st.session_state.contract_created = True
-                        st.rerun()
-                    else:
-                        st.error("Failed to create contract.")
-                else:
-                    st.error("Please fill in all required fields.")
-    else:
-        st.warning("Customers or Insurance Types are missing in the database. Please add them first.")
-
-def update_contract_form():
-    """Display the form to update an existing contract"""
-    # Initialize session state for success message
-    if 'contract_updated' not in st.session_state:
-        st.session_state.contract_updated = False
-    
-    # Show success message if contract was just updated
-    if st.session_state.contract_updated:
-        st.success("Contract updated successfully!")
-        st.session_state.contract_updated = False
-    
-    contracts = get_contracts_dropdown()
-    if contracts:
-        selected_contract = st.selectbox("Select Contract to Edit", options=list(contracts.keys()))
-
-        if selected_contract:
-            contract_id = contracts[selected_contract]
-            contract = get_contract_by_id(contract_id)
-
-            if contract:
-                with st.form("update_contract_form"):
-                    customer_id = st.text_input("Customer ID", value=contract['CustomerID'])
-                    insurance_type_id = st.text_input("Insurance Type ID", value=contract['InsuranceTypeID'])
-                    sign_date = st.date_input("Sign Date", value=contract['SignDate'])
-                    expiration_date = st.date_input("Expiration Date", value=contract['ExpirationDate'])
-
-                    submitted = st.form_submit_button("Update Contract")
-                    if submitted:
-                        if customer_id and insurance_type_id and sign_date and expiration_date:
-                            update_contract(contract_id, customer_id, insurance_type_id, sign_date, expiration_date)
-                            st.session_state.contract_updated = True
-                            st.rerun()
-                        else:
-                            st.error("Please fill in all required fields.")
-    else:
-        st.info("No contracts found in the database.")
-
-def extend_contracts():
-    """Display the interface for extending contract expiration dates"""
-    nearing_expiration_contracts = get_expiring_contracts()
-    if nearing_expiration_contracts:
-        df_nearing_expiration = pd.DataFrame(nearing_expiration_contracts)
-
-        # Add a checkbox for each row to extend the expiration date
-        df_nearing_expiration['Extend Expiration'] = df_nearing_expiration['ContractID'].apply(
-            lambda x: st.checkbox(f"Extend expiration for {x}", key=f"extend_{x}")
-        )
-
-        # Submit button to update the expiration dates
-        if st.button("Extend Expiration Dates"):
-            for index, row in df_nearing_expiration.iterrows():
-                if row['Extend Expiration']:
-                    new_expiration_date = row['ExpirationDate'] + datetime.timedelta(days=365)
-                    extend_contract(row['ContractID'], new_expiration_date)
-            st.success("Selected contracts' expiration dates extended by 1 year!")
-            st.experimental_rerun()  # Force a page refresh
-
-        # Display the table
-        st.dataframe(df_nearing_expiration[['ContractID', 'CustomerName', 'InsuranceName', 'SignDate', 'ExpirationDate']], use_container_width=True)
-    else:
-        st.info("No contracts nearing expiration within the next 3 months.")
-
 @st.cache_data(ttl=300)
 def get_all_contracts():
     """Get all contracts with customer and insurance type information"""
@@ -298,24 +159,38 @@ def update_contract(contract_id, customer_id, insurance_type_id, sign_date, expi
 
 def extend_contract(contract_id, new_expiration_date):
     """Extend a contract's expiration date"""
+    # Format the date properly for MySQL - this is critical
+    if isinstance(new_expiration_date, datetime.date):
+        formatted_date = new_expiration_date.strftime('%Y-%m-%d')
+    else:
+        formatted_date = str(new_expiration_date)
+    
     query = """
     UPDATE InsuranceContracts 
     SET ExpirationDate = %s, Status = 'Active'
     WHERE ContractID = %s
     """
-    data = (new_expiration_date, contract_id)
+    data = (formatted_date, contract_id)
+    
+    # Force clear cache before executing the query
+    st.cache_data.clear()
+    
+    # Execute the update query
     result = execute_write_query(query, data)
     
-    # Clear cache for contract-related functions
-    if hasattr(get_all_contracts, 'clear'):
-        get_all_contracts.clear()
-    if hasattr(get_contract_by_id, 'clear'):
-        get_contract_by_id.clear()
-    if hasattr(get_contracts_dropdown, 'clear'):
-        get_contracts_dropdown.clear()
-    if hasattr(get_contracts_by_customer, 'clear'):
-        get_contracts_by_customer.clear()
-    if hasattr(get_expiring_contracts, 'clear'):
-        get_expiring_contracts.clear()
-    
+    # Clear individual function caches if they exist
+    try:
+        if hasattr(get_all_contracts, 'clear'):
+            get_all_contracts.clear()
+        if hasattr(get_contract_by_id, 'clear'):
+            get_contract_by_id.clear()
+        if hasattr(get_contracts_dropdown, 'clear'):
+            get_contracts_dropdown.clear()
+        if hasattr(get_contracts_by_customer, 'clear'):
+            get_contracts_by_customer.clear()
+        if hasattr(get_expiring_contracts, 'clear'):
+            get_expiring_contracts.clear()
+    except Exception as e:
+        print(f"Error clearing cache: {e}")
+
     return result

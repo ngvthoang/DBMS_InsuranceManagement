@@ -86,13 +86,26 @@ CREATE TRIGGER BeforeContractUpdate
 BEFORE UPDATE ON InsuranceContracts
 FOR EACH ROW
 BEGIN
-    -- Calculate the expiration date as one year from the sign date
-    SET NEW.ExpirationDate = DATE_ADD(NEW.SignDate, INTERVAL 1 YEAR);
-    -- Change the status to 'Active' if the ExpirationDate is in the future
-    IF NEW.ExpirationDate > CURDATE() THEN
-        SET NEW.Status = 'Active';
+    -- Check if we're explicitly setting an expiration date (for contract extension)
+    IF NEW.ExpirationDate != OLD.ExpirationDate THEN
+        -- This is likely a contract extension, so keep the user-specified expiration date
+        -- Only update the status based on the new expiration date
+        IF NEW.ExpirationDate > CURDATE() THEN
+            SET NEW.Status = 'Active';
+        ELSE
+            SET NEW.Status = 'Expired';
+        END IF;
     ELSE
-        SET NEW.Status = 'Expired';
+        -- Regular update (not extending the contract)
+        -- Calculate the expiration date as one year from the sign date
+        SET NEW.ExpirationDate = DATE_ADD(NEW.SignDate, INTERVAL 1 YEAR);
+        
+        -- Update the status based on the new expiration date
+        IF NEW.ExpirationDate > CURDATE() THEN
+            SET NEW.Status = 'Active';
+        ELSE
+            SET NEW.Status = 'Expired';
+        END IF;
     END IF;
 END$$
 
@@ -139,4 +152,4 @@ INSERT INTO Payouts (PayoutID, ContractID, Amount, PayoutDate, Status) VALUES
 ('P002', 'CT003', 20000.00, '2024-05-20', 'Rejected'),
 ('P003', 'CT004', 150000.00, '2024-07-01', 'Approved'),
 ('P004', 'CT001', 800.00, '2025-01-10', 'Pending'),
-('P005', 'CT002', 0.00, '2024-04-20', 'Rejected'); 
+('P005', 'CT002', 0.00, '2024-04-20', 'Rejected');

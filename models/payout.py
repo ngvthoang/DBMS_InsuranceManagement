@@ -6,26 +6,30 @@ from models.assessment import get_approved_claims
 from mysql.connector import Error
 
 @st.cache_data(ttl=300)
-def get_all_payouts():
-    """Get all payouts with related information"""
+def get_all_payouts(limit=100, offset=0):
+    """Get all payouts with related information with pagination"""
+    # Truy vấn này lấy tất cả các khoản thanh toán với thông tin liên quan.
+    # Đã thêm LIMIT và OFFSET để hỗ trợ phân trang, giúp giảm tải dữ liệu trả về.
     query = """
-        SELECT p.PayoutID, p.ContractID, cust.CustomerID, cust.CustomerName, 
+        SELECT p.PayoutID, p.ContractID, cust.CustomerName, 
                p.PayoutDate, p.Amount, p.Status, t.InsuranceName
         FROM Payouts p
         JOIN InsuranceContracts c ON p.ContractID = c.ContractID
         JOIN Customers cust ON c.CustomerID = cust.CustomerID
         JOIN InsuranceTypes t ON c.InsuranceTypeID = t.InsuranceTypeID
         ORDER BY p.PayoutDate DESC
+        LIMIT %s OFFSET %s
     """
-    return get_cached_data(query)
+    return get_cached_data(query, (limit, offset))
 
 @st.cache_data(ttl=300)
 def get_payout_by_id(payout_id):
     """Get a specific payout by ID"""
+    # Truy vấn này lấy thông tin chi tiết của một khoản thanh toán dựa trên ID.
+    # Chỉ chọn các cột cần thiết để giảm tải dữ liệu không cần thiết.
     query = """
         SELECT p.PayoutID, p.ContractID, c.CustomerID, cust.CustomerName,
-               p.PayoutDate, p.Amount, p.Status, t.InsuranceName,
-               t.InsuranceTypeID
+               p.PayoutDate, p.Amount, p.Status, t.InsuranceName
         FROM Payouts p
         JOIN InsuranceContracts c ON p.ContractID = c.ContractID
         JOIN Customers cust ON c.CustomerID = cust.CustomerID
@@ -40,11 +44,14 @@ def get_payout_by_id(payout_id):
 @st.cache_data(ttl=300)
 def get_payouts_dropdown():
     """Get payouts for dropdown selection"""
+    # Truy vấn này lấy danh sách các khoản thanh toán để hiển thị trong dropdown.
+    # Đã thêm LIMIT để giới hạn số lượng kết quả trả về.
     query = """
         SELECT p.PayoutID, cust.CustomerName, p.Amount
         FROM Payouts p
         JOIN InsuranceContracts c ON p.ContractID = c.ContractID
         JOIN Customers cust ON c.CustomerID = cust.CustomerID
+        LIMIT 100
     """
     payouts = get_cached_data(query)
     if not payouts:

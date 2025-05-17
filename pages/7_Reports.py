@@ -57,7 +57,7 @@ report_type = st.selectbox(
 # Refresh button
 if st.button("🔄 Refresh Data"):
     st.cache_data.clear()
-    st.experimental_rerun()
+    st.rerun()
 
 # Add a download option for each report
 download_format = st.radio("Download Format", ["CSV", "Excel"], horizontal=True)

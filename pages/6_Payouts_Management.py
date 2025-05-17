@@ -56,7 +56,7 @@ with tab1:
     # Refresh button
     if st.button("🔄 Refresh", key="refresh_payouts"):
         st.cache_data.clear()
-        st.experimental_rerun()
+        st.rerun()
     
     # Get and display payouts
     payouts = get_all_payouts()
@@ -121,7 +121,7 @@ with tab1:
                         if new_status != payout['Status']:
                             if update_payout_status(payout_id, new_status):
                                 st.success(f"Payout status updated to {new_status}!")
-                                st.experimental_rerun()
+                                st.rerun()
                             else:
                                 st.error("Failed to update payout status.")
     else:
@@ -183,7 +183,7 @@ with tab2:
                                 st.session_state.payout_processed = True
                                 
                                 # Rerun to show the success message
-                                st.experimental_rerun()
+                                st.rerun()
                             else:
                                 st.error("Failed to process payout.")
                         else:
@@ -234,13 +234,13 @@ with tab3:
                     # Update the payout status
                     if update_payout_status(row['PayoutID'], status):
                         st.success(f"Payout {row['PayoutID']} {status.lower()}!")
-                        st.experimental_rerun()
+                        st.rerun()
                     else:
                         st.error(f"Failed to update payout {row['PayoutID']}.")
         
         # Add a button to refresh the pending payouts
         if st.button("Refresh Pending Payouts"):
-            st.experimental_rerun()
+            st.rerun()
     else:
         st.info("No pending payouts found.")
 

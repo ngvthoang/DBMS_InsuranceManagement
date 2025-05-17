@@ -263,11 +263,6 @@ with tab3:
 with tab4:
     st.subheader("Contract Extension")
     
-    # Show success message if contracts were just extended
-    if st.session_state.contract_extended and not st.session_state.show_success:
-        st.success("Contract(s) extended successfully!")
-        st.session_state.contract_extended = False
-    
     # Get contracts nearing expiration
     expiring_contracts = get_expiring_contracts()
     
@@ -313,22 +308,29 @@ with tab4:
                             if contract_info['Status'] == 'Expired':
                                 base_date = datetime.date.today()
                             else:
-                                base_date = contract_info['ExpirationDate']
+                                base_date = pd.to_datetime(contract_info['ExpirationDate']).date()
                             
                             # Calculate new expiration date
                             new_exp_date = base_date + datetime.timedelta(days=days)
-                            
+
                             if extend_contract(contract_id, new_exp_date):
                                 success_count += 1
                     
                     if success_count > 0:
-                        # Set success flag and redirect to view tab
+                        # Set success flag and show message in the placeholder
                         st.session_state.contract_extended = True
-                        st.session_state.show_success = True
+                        # Clear the cache to refresh the data
+                        st.cache_data.clear()
                         st.rerun()
                     else:
                         st.error("Failed to extend contracts.")
                 else:
                     st.warning("Please select at least one contract to extend.")
+        
+        # Show persistent success message after form (also works after rerun)
+        if st.session_state.contract_extended:
+            st.success("Contract(s) extended successfully!")
+            st.session_state.contract_extended = False
+            st.session_state.show_success = True
     else:
         st.info("No contracts are nearing expiration or have expired.")
