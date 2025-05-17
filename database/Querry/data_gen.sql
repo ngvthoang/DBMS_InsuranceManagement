@@ -78,6 +78,22 @@ INSERT INTO Users (Username, PasswordHash, RoleID) VALUES
 -- Encrypt sensitive data in Assessments and Payouts
 UPDATE Assessments SET EncryptedClaimAmount = AES_ENCRYPT(ClaimAmount, 'encryption_key');
 UPDATE Payouts SET EncryptedAmount = AES_ENCRYPT(Amount, 'encryption_key');
+
+-- Optimize contract lookups by CustomerID, InsuranceTypeID, ExpirationDate, and Status
+CREATE INDEX idx_contract_customer ON InsuranceContracts(CustomerID);
+CREATE INDEX idx_contract_type ON InsuranceContracts(InsuranceTypeID);
+CREATE INDEX idx_contract_expiration ON InsuranceContracts(ExpirationDate);
+CREATE INDEX idx_contract_status ON InsuranceContracts(Status);
+
+-- Optimize claim (assessment) lookups by ContractID, Result, and AssessmentDate
+CREATE INDEX idx_assessment_contract ON Assessments(ContractID);
+CREATE INDEX idx_assessment_result ON Assessments(Result);
+CREATE INDEX idx_assessment_date ON Assessments(AssessmentDate);
+
+-- Optimize payout lookups by ContractID and Status
+CREATE INDEX idx_payout_contract ON Payouts(ContractID);
+CREATE INDEX idx_payout_status ON Payouts(Status);
+
 -- -- Insert Sample Data
 
 -- INSERT INTO Customers (CustomerID, CustomerName, Address, PhoneNumber) VALUES

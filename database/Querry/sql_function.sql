@@ -111,10 +111,60 @@ END$$
 
 DELIMITER ;
 
+DROP PROCEDURE IF EXISTS CreateContract;
+-- Create contract for a customer
+DELIMITER $$
+CREATE PROCEDURE CreateContract (
+    IN p_ContractID VARCHAR(10),
+    IN p_CustomerID VARCHAR(10),
+    IN p_InsuranceTypeID VARCHAR(10),
+    IN p_SignDate DATE,
+    IN p_ExpirationDate DATE
+)
+BEGIN
+    INSERT INTO InsuranceContracts (
+        ContractID, CustomerID, InsuranceTypeID, SignDate, ExpirationDate, Status
+    )
+    VALUES (
+        p_ContractID, p_CustomerID, p_InsuranceTypeID, p_SignDate, p_ExpirationDate, 'Active'
+    );
+END$$
+DELIMITER ;
 
+-- Calculate Claim Success Rate of a customer
+DELIMITER $$
+CREATE FUNCTION CalculateClaimSuccessRate(customerID VARCHAR(10))
+RETURNS DECIMAL(5,2)
+DETERMINISTIC
+BEGIN
+    DECLARE totalClaims INT;
+    DECLARE approvedClaims INT;
+    DECLARE successRate DECIMAL(5,2);
+
+
+    SELECT COUNT(*) INTO totalClaims
+    FROM Assessments a
+    JOIN InsuranceContracts c ON a.ContractID = c.ContractID
+    WHERE c.CustomerID = customerID;
+
+
+    SELECT COUNT(*) INTO approvedClaims
+    FROM Assessments a
+    JOIN InsuranceContracts c ON a.ContractID = c.ContractID
+    WHERE c.CustomerID = customerID AND a.Result = 'Approved';
+
+    IF totalClaims = 0 THEN
+        SET successRate = 0.00;
+    ELSE
+        SET successRate = (approvedClaims / totalClaims) * 100;
+    END IF;
+
+
+    RETURN successRate;
+END$$
+DELIMITER ;
 
 -- Insert Sample Data
-
 
 INSERT INTO Customers (CustomerID, CustomerName, Address, PhoneNumber) VALUES
 ('C001', 'John Smith', '123 Main St, New York, NY', '555-1234'),
