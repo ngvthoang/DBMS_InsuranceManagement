@@ -1,11 +1,11 @@
 -- Drop tables in reverse order of creation (due to foreign key constraints)
+DROP TABLE IF EXISTS Users;
+DROP TABLE IF EXISTS Roles;
 DROP TABLE IF EXISTS Payouts;
 DROP TABLE IF EXISTS Assessments;
 DROP TABLE IF EXISTS InsuranceContracts;
 DROP TABLE IF EXISTS InsuranceTypes;
 DROP TABLE IF EXISTS Customers;
-DROP TABLE IF EXISTS Users;
-DROP TABLE IF EXISTS Roles;
 
 -- Create Tables
 CREATE TABLE Customers (
@@ -14,7 +14,6 @@ CREATE TABLE Customers (
     Address VARCHAR(255),
     PhoneNumber VARCHAR(20)
 );
-
 
 CREATE TABLE InsuranceTypes (
     InsuranceTypeID VARCHAR(10) PRIMARY KEY,
@@ -40,6 +39,7 @@ CREATE TABLE Assessments (
     AssessmentDate DATE,
     ClaimAmount DECIMAL(12, 2),
     Result VARCHAR(255),
+    EncryptedClaimAmount VARBINARY(255),
     FOREIGN KEY (ContractID) REFERENCES InsuranceContracts(ContractID)
 );
 
@@ -49,6 +49,7 @@ CREATE TABLE Payouts (
     Amount DECIMAL(12, 2),
     PayoutDate DATE,
     Status VARCHAR(20) DEFAULT 'Pending',
+    EncryptedAmount VARBINARY(255),
     FOREIGN KEY (ContractID) REFERENCES InsuranceContracts(ContractID)
 );
 
