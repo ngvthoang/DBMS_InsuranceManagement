@@ -19,7 +19,7 @@ from models.assessment import get_approved_claims, get_related_assessment
 if "logged_in" not in st.session_state or not st.session_state["logged_in"]:
     st.error("Access denied. Please log in to view this page.")
     st.stop()
-if "role" not in st.session_state or st.session_state["role"] not in ["Admin", "Claim Accessor"]:
+if "role" not in st.session_state or st.session_state["role"] not in ["Admin", "Claim Assessor"]:
     st.error("Access denied. You do not have permission to view this page.")
     st.stop()
 
