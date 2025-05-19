@@ -87,9 +87,11 @@ streamlit run Home.py
 Account for Admin:
 - Username: admin
 - Password: admin123
+  
 Account for Insurance agent:
 - Username: agent_user
 - Password: agent123
+  
 Account for Claim Assessor:
 - Username: assessor_user  
 - Password: assessor123
