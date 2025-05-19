@@ -62,7 +62,7 @@ Create a .env file and set an environment example
 ```#DATABASE CONNECTION
 DB_HOST = "localhost"
 
-DB_NAME = 'your database name here'
+DB_NAME = 'prj_insurance'
 
 DB_USER = 'root'
 
