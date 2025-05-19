@@ -1,3 +1,4 @@
+USE prj_insurance;
 -- Drop triggers and events first
 DROP TRIGGER IF EXISTS AfterAssessmentInsert;
 DROP TRIGGER IF EXISTS AfterAssessmentUpdate;
@@ -131,38 +132,38 @@ BEGIN
 END$$
 DELIMITER ;
 
--- Calculate Claim Success Rate of a customer
-DELIMITER $$
-CREATE FUNCTION CalculateClaimSuccessRate(customerID VARCHAR(10))
-RETURNS DECIMAL(5,2)
-DETERMINISTIC
-BEGIN
-    DECLARE totalClaims INT;
-    DECLARE approvedClaims INT;
-    DECLARE successRate DECIMAL(5,2);
+-- -- Calculate Claim Success Rate of a customer
+-- DELIMITER $$
+-- CREATE FUNCTION CalculateClaimSuccessRate(customerID VARCHAR(10))
+-- RETURNS DECIMAL(5,2)
+-- DETERMINISTIC
+-- BEGIN
+--     DECLARE totalClaims INT;
+--     DECLARE approvedClaims INT;
+--     DECLARE successRate DECIMAL(5,2);
 
 
-    SELECT COUNT(*) INTO totalClaims
-    FROM Assessments a
-    JOIN InsuranceContracts c ON a.ContractID = c.ContractID
-    WHERE c.CustomerID = customerID;
+--     SELECT COUNT(*) INTO totalClaims
+--     FROM Assessments a
+--     JOIN InsuranceContracts c ON a.ContractID = c.ContractID
+--     WHERE c.CustomerID = customerID;
 
 
-    SELECT COUNT(*) INTO approvedClaims
-    FROM Assessments a
-    JOIN InsuranceContracts c ON a.ContractID = c.ContractID
-    WHERE c.CustomerID = customerID AND a.Result = 'Approved';
+--     SELECT COUNT(*) INTO approvedClaims
+--     FROM Assessments a
+--     JOIN InsuranceContracts c ON a.ContractID = c.ContractID
+--     WHERE c.CustomerID = customerID AND a.Result = 'Approved';
 
-    IF totalClaims = 0 THEN
-        SET successRate = 0.00;
-    ELSE
-        SET successRate = (approvedClaims / totalClaims) * 100;
-    END IF;
+--     IF totalClaims = 0 THEN
+--         SET successRate = 0.00;
+--     ELSE
+--         SET successRate = (approvedClaims / totalClaims) * 100;
+--     END IF;
 
 
-    RETURN successRate;
-END$$
-DELIMITER ;
+--     RETURN successRate;
+-- END$$
+-- DELIMITER ;
 
 -- Insert Sample Data
 
@@ -197,9 +198,9 @@ INSERT INTO Assessments (AssessmentID, ContractID, AssessmentDate, ClaimAmount, 
 ('A004', 'CT005', '2024-07-10', 0.00, 'Pending'),
 ('A005', 'CT001', '2025-01-05', 800.00, 'Approved');
 
-INSERT INTO Payouts (PayoutID, ContractID, Amount, PayoutDate, Status) VALUES
-('P001', 'CT001', 5000.00, '2024-06-15', 'Approved'),
-('P002', 'CT003', 20000.00, '2024-05-20', 'Rejected'),
-('P003', 'CT004', 150000.00, '2024-07-01', 'Approved'),
-('P004', 'CT001', 800.00, '2025-01-10', 'Pending'),
-('P005', 'CT002', 0.00, '2024-04-20', 'Rejected');
+-- INSERT INTO Payouts (PayoutID, ContractID, Amount, PayoutDate, Status) VALUES
+-- ('P001', 'CT001', 5000.00, '2024-06-15', 'Approved'),
+-- ('P002', 'CT003', 20000.00, '2024-05-20', 'Rejected'),
+-- ('P003', 'CT004', 150000.00, '2024-07-01', 'Approved'),
+-- ('P004', 'CT001', 800.00, '2025-01-10', 'Pending'),
+-- ('P005', 'CT002', 0.00, '2024-04-20', 'Rejected');

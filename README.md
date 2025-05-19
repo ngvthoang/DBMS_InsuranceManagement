@@ -71,6 +71,16 @@ DB_PASSWORD = 'your password here'
 ```
 
 ### Run processing file
+Before running the application, you need to run the processing file to create the database and tables by running the sql files: data_gen.sql, sql_function.sql in the database folder. You can do this by using MySQL Workbench or any other MySQL client.
+To run the SQL files in MySQL Workbench:
+1. Open MySQL Workbench and connect to your MySQL server.
+2. Open the SQL file (data_gen.sql) in MySQL Workbench.
+3. Click on the lightning bolt icon (Execute) to run the SQL script.
+4. Repeat the same steps for the sql_function.sql file.
+
+### Run the Application
+To run the application, navigate to the project directory and run the following command:
+```cmd
 Open terminal to run the following codecode
 ```
 streamlit run Home.py

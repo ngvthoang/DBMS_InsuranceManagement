@@ -1,5 +1,6 @@
 -- Create and populate the database for an Insurance Management System
 CREATE DATABASE IF NOT EXISTS prj_insurance;
+USE prj_insurance;
 
 -- Drop tables in reverse order of creation (due to foreign key constraints)
 DROP TABLE IF EXISTS Users;
