@@ -36,7 +36,6 @@ Before you can run this project, make sure you have the following prerequisites 
 - Python
 - MySQL sever
 - Pip (Python package manager)
-- Miniconda or other virtual enviroments
 - Other required Python packages (see in requirement.txt)
 
 ### Clone the Repository
