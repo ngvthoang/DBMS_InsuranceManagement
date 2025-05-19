@@ -80,7 +80,5 @@ To run the SQL files in MySQL Workbench:
 ### Run the Application
 To run the application, navigate to the project directory and run the following command:
 ```cmd
-Open terminal to run the following codecode
-```
 streamlit run Home.py
 ```
