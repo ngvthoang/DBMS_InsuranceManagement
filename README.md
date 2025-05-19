@@ -82,3 +82,13 @@ To run the application, navigate to the project directory and run the following 
 ```cmd
 streamlit run Home.py
 ```
+
+### Login account
+- Username: admin
+- Password: admin123
+
+- Username: agent_user
+- Password: agent123
+
+- Username: assessor_user  
+- Password: assessor123
